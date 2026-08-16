@@ -16,8 +16,8 @@ function App() {
             <span className="block text-amber-300">Qualified by AI.</span>
           </h1>
           <p className="mt-5 max-w-xl text-base text-stone-300 sm:text-lg">
-            Phase 1 intake form. Submit-ready UI with client-side validation,
-            preparing for webhook integration in the next step.
+            Phase 1 intake form with live webhook submission into n8n. This is
+            the production pathway for lead capture.
           </p>
 
           <div className="mt-8 grid gap-3 text-sm text-stone-200 sm:grid-cols-2">
@@ -31,7 +31,7 @@ function App() {
               Inline, field-level error messages
             </div>
             <div className="rounded-xl border border-white/15 bg-black/20 p-3">
-              Webhook wiring is next in sequence
+              Direct POST to n8n webhook endpoint
             </div>
           </div>
         </header>

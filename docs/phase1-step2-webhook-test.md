@@ -15,6 +15,12 @@ Confirm n8n receives payloads before connecting frontend submit.
 - Test URL: https://YOUR_N8N_HOST/webhook-test/renovateai/lead-intake
 - Production URL: https://YOUR_N8N_HOST/webhook/renovateai/lead-intake
 
+If hosting n8n on Azure, YOUR_N8N_HOST is typically one of:
+
+- https://n8n.YOUR_DOMAIN.com (recommended custom domain)
+- https://YOUR_CONTAINER_APP.azurecontainerapps.io
+- https://YOUR_VM_PUBLIC_DNS_OR_IP
+
 ## Test Command (PowerShell)
 
 Run this with your test webhook URL:
@@ -31,4 +37,8 @@ curl -Method Post "https://YOUR_N8N_HOST/webhook-test/renovateai/lead-intake" -C
 
 ## Next Step
 
-After this passes, wire frontend submit in LeadForm to POST to this webhook URL.
+After this passes, set frontend/.env:
+
+VITE_N8N_WEBHOOK_URL=https://YOUR_N8N_HOST/webhook/renovateai/lead-intake
+
+Then run frontend and submit from the real form.

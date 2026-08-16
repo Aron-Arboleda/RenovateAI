@@ -1,5 +1,6 @@
 import {useMemo, useState} from "react";
 import type {FormEvent} from "react";
+import {submitLead} from "../lib/api";
 
 type LeadFormData = {
   name: string;
@@ -52,6 +53,9 @@ export default function LeadForm() {
   const [values, setValues] = useState<LeadFormData>(INITIAL_VALUES);
   const [errors, setErrors] = useState<LeadFormErrors>({});
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
 
   const isValid = useMemo(
     () => Object.keys(validateLeadForm(values)).length === 0,
@@ -67,18 +71,59 @@ export default function LeadForm() {
     }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
     event.preventDefault();
     setHasSubmitted(true);
+    setSubmitError(null);
 
     const nextErrors = validateLeadForm(values);
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length === 0) {
-      // Step 1 only: UI validation proof. Webhook POST is added in Step 3.
-      console.log("Lead form is valid and ready for webhook wiring.", values);
+      try {
+        setIsSubmitting(true);
+        await submitLead(values);
+        setIsSubmittedSuccess(true);
+      } catch (error) {
+        setSubmitError(
+          error instanceof Error
+            ? error.message
+            : "Submission failed. Please try again.",
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
+
+  if (isSubmittedSuccess) {
+    return (
+      <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 shadow-2xl shadow-black/20 sm:p-8">
+        <h2 className="font-sora text-2xl font-semibold sm:text-3xl">
+          Thanks, we&apos;ll be in touch.
+        </h2>
+        <p className="mt-3 text-sm sm:text-base">
+          Your request has been sent successfully. Our team will review your
+          renovation details and follow up soon.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setValues(INITIAL_VALUES);
+            setErrors({});
+            setHasSubmitted(false);
+            setSubmitError(null);
+            setIsSubmittedSuccess(false);
+          }}
+          className="mt-6 rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+        >
+          Submit Another Lead
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-3xl border border-white/15 bg-white p-6 text-stone-900 shadow-2xl shadow-black/30 sm:p-8">
@@ -86,8 +131,8 @@ export default function LeadForm() {
         Start Your Project
       </h2>
       <p className="mt-2 text-sm text-stone-600">
-        Fill in every field to test validation. Submission integration comes in
-        the next phase step.
+        Share your renovation goals and we&apos;ll route this directly into our
+        qualification workflow.
       </p>
 
       <form className="mt-6 space-y-5" onSubmit={handleSubmit} noValidate>
@@ -182,9 +227,10 @@ export default function LeadForm() {
 
         <button
           type="submit"
-          className="w-full rounded-xl bg-stone-900 px-4 py-3 font-semibold text-white transition hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+          disabled={isSubmitting}
+          className="w-full rounded-xl bg-stone-900 px-4 py-3 font-semibold text-white transition hover:bg-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Validate Lead Details
+          {isSubmitting ? "Submitting..." : "Submit Lead"}
         </button>
 
         {hasSubmitted && (
@@ -196,8 +242,14 @@ export default function LeadForm() {
             }`}
           >
             {isValid
-              ? "All required fields look valid. Next step is wiring the n8n webhook."
+              ? "All required fields look valid. You can submit to n8n now."
               : "Please fix the highlighted fields before continuing."}
+          </p>
+        )}
+
+        {submitError && (
+          <p className="rounded-xl bg-rose-100 px-4 py-3 text-sm font-medium text-rose-900">
+            {submitError}
           </p>
         )}
       </form>

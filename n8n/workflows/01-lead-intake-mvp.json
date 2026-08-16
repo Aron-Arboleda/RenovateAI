@@ -17,17 +17,59 @@
     },
     {
       "parameters": {
+        "jsCode": "const payload = $json;\nconst requiredFields = [\n  \"name\",\n  \"email\",\n  \"phone\",\n  \"projectType\",\n  \"budget\",\n  \"location\",\n  \"timeline\",\n  \"description\",\n];\n\nconst errors = [];\n\nfor (const field of requiredFields) {\n  const value = payload[field];\n  if (typeof value !== \"string\" || !value.trim()) {\n    errors.push(`${field} is required`);\n  }\n}\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (typeof payload.email !== \"string\" || !emailRegex.test(payload.email.trim())) {\n  errors.push(\"email must be valid\");\n}\n\nreturn [\n  {\n    json: {\n      ...payload,\n      isValid: errors.length === 0,\n      validationErrors: errors,\n    },\n  },\n];"
+      },
+      "id": "915d1a8d-5083-40f5-b7cf-f06ca2900f17",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "operation": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2f49248c-5663-4cbf-82ec-c5009af5f468",
+      "name": "Is Valid Payload?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"ok\": true, \"message\": \"Webhook received\", \"received\": $json } }}",
+        "responseBody": "={{ { \"ok\": true, \"message\": \"Lead payload accepted\", \"received\": { \"name\": $json.name, \"email\": $json.email, \"phone\": $json.phone, \"projectType\": $json.projectType, \"budget\": $json.budget, \"location\": $json.location, \"timeline\": $json.timeline, \"description\": $json.description } } }}",
         "options": {
           "responseCode": 200
         }
       },
       "id": "cfed1073-9256-4bc8-af56-faf0dcbb4aa3",
-      "name": "Respond OK",
+      "name": "Respond Valid",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [560, 300]
+      "position": [1020, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"message\": \"Payload validation failed\", \"errors\": $json.validationErrors } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "06f1f830-58c4-4a1e-b049-ba3e2fdaf26f",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1020, 420]
     }
   ],
   "connections": {
@@ -35,7 +77,36 @@
       "main": [
         [
           {
-            "node": "Respond OK",
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Is Valid Payload?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid Payload?": {
+      "main": [
+        [
+          {
+            "node": "Respond Valid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Invalid",
             "type": "main",
             "index": 0
           }
@@ -47,7 +118,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "d8f0dd33-946c-4931-9dfc-31ac76158daf",
+  "versionId": "e5f7fd15-564f-491d-a46a-b624338c80f9",
   "meta": {
     "instanceId": "renovateai-phase1"
   },
