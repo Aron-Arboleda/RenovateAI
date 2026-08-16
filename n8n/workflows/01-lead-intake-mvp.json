@@ -12,10 +12,7 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [
-        -3872,
-        672
-      ],
+      "position": [-3872, 672],
       "webhookId": "cc88bdb8-e7cd-4a1f-99dd-e685fd49f10b"
     },
     {
@@ -26,10 +23,7 @@
       "name": "Validate Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -3632,
-        672
-      ]
+      "position": [-3632, 672]
     },
     {
       "parameters": {
@@ -59,10 +53,7 @@
       "name": "Is Valid Payload?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [
-        -3408,
-        672
-      ]
+      "position": [-3408, 672]
     },
     {
       "parameters": {
@@ -72,10 +63,7 @@
       "name": "Prepare Lead Record",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -3168,
-        592
-      ]
+      "position": [-3168, 592]
     },
     {
       "parameters": {
@@ -85,10 +73,7 @@
       "name": "Prepare AI Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -2928,
-        592
-      ]
+      "position": [-2928, 592]
     },
     {
       "parameters": {
@@ -120,10 +105,7 @@
       "name": "Call Gemini API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        -2688,
-        592
-      ]
+      "position": [-2688, 592]
     },
     {
       "parameters": {
@@ -133,10 +115,7 @@
       "name": "Parse AI Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -2448,
-        592
-      ]
+      "position": [-2448, 592]
     },
     {
       "parameters": {
@@ -146,10 +125,7 @@
       "name": "Merge AI Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -2208,
-        592
-      ]
+      "position": [-2208, 592]
     },
     {
       "parameters": {
@@ -191,10 +167,187 @@
       "name": "Insert Lead (Supabase)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [
-        -1968,
-        592
-      ]
+      "position": [-1968, 592]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "hot-check",
+              "leftValue": "={{ $node[\"Merge AI Results\"].json.finalRecord.classification }}",
+              "rightValue": "HOT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-classification-hot",
+      "name": "Is HOT Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1728, 592]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_HOT }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"text\": \"🔥 HOT Lead Alert!\",\n  \"blocks\": [\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": \"🔥 HOT Lead - Immediate Action Required\"\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"fields\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Name:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.name\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Score:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.lead_score + \"/100\"\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Email:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.email\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Phone:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.phone\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Project:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.project_type\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Budget:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.budget\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Timeline:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.timeline\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Location:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.location\n        }\n      ]\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*AI Summary:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.ai_summary\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Recommended Action:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.recommended_action\n      }\n    },\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"Urgency: \" + $node[\"Merge AI Results\"].json.finalRecord.urgency + \" | Est. Value: $\" + $node[\"Merge AI Results\"].json.finalRecord.estimated_value.toLocaleString()\n        }\n      ]\n    }\n  ]\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "send-hot-alert",
+      "name": "Send HOT Lead Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1488, 472]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "unscored-check",
+              "leftValue": "={{ $node[\"Merge AI Results\"].json.finalRecord.classification }}",
+              "rightValue": "UNSCORED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-unscored",
+      "name": "Is UNSCORED?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1488, 712]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "warm-check",
+              "leftValue": "={{ $node[\"Merge AI Results\"].json.finalRecord.classification }}",
+              "rightValue": "WARM",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-warm",
+      "name": "Is WARM Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-1248, 712]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_WARM }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"text\": \"🎯 WARM Lead Alert\",\n  \"blocks\": [\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": \"🎯 WARM Lead - Follow Up Within 2-3 Days\"\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"fields\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Name:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.name\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Score:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.lead_score + \"/100\"\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Email:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.email\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Phone:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.phone\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Project:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.project_type\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Budget:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.budget\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Timeline:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.timeline\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Location:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.location\n        }\n      ]\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*AI Summary:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.ai_summary\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Recommended Action:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.recommended_action\n      }\n    },\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"Urgency: \" + $node[\"Merge AI Results\"].json.finalRecord.urgency + \" | Est. Value: $\" + $node[\"Merge AI Results\"].json.finalRecord.estimated_value.toLocaleString()\n        }\n      ]\n    }\n  ]\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "send-warm-alert",
+      "name": "Send WARM Lead Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1008, 832]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_ERRORS }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"text\": \"⚠️ AI Scoring Failed\",\n  \"blocks\": [\n    {\n      \"type\": \"header\",\n      \"text\": {\n        \"type\": \"plain_text\",\n        \"text\": \"⚠️ AI Scoring Failed - Manual Review Required\"\n      }\n    },\n    {\n      \"type\": \"section\",\n      \"fields\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Name:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.name\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Email:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.email\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Phone:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.phone\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Project:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.project_type\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Budget:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.budget\n        },\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"*Timeline:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.timeline\n        }\n      ]\n    },\n    {\n      \"type\": \"section\",\n      \"text\": {\n        \"type\": \"mrkdwn\",\n        \"text\": \"*Error Details:*\\n\" + $node[\"Merge AI Results\"].json.finalRecord.ai_summary\n      }\n    },\n    {\n      \"type\": \"context\",\n      \"elements\": [\n        {\n          \"type\": \"mrkdwn\",\n          \"text\": \"Lead was saved to database but requires manual qualification\"\n        }\n      ]\n    }\n  ]\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "send-unscored-alert",
+      "name": "Send AI Failure Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1248, 832]
     },
     {
       "parameters": {
@@ -204,10 +357,7 @@
       "name": "Build DB Result Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -1728,
-        592
-      ]
+      "position": [-1008, 592]
     },
     {
       "parameters": {
@@ -217,10 +367,7 @@
       "name": "Build Validation Error Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        -3168,
-        752
-      ]
+      "position": [-3168, 752]
     },
     {
       "parameters": {
@@ -234,10 +381,7 @@
       "name": "Respond Result",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [
-        -1488,
-        672
-      ]
+      "position": [-1488, 672]
     }
   ],
   "pinData": {},
@@ -338,6 +482,93 @@
       ]
     },
     "Insert Lead (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Is HOT Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is HOT Lead?": {
+      "main": [
+        [
+          {
+            "node": "Send HOT Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is UNSCORED?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send HOT Lead Alert": {
+      "main": [
+        [
+          {
+            "node": "Build DB Result Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is UNSCORED?": {
+      "main": [
+        [
+          {
+            "node": "Send AI Failure Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is WARM Lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is WARM Lead?": {
+      "main": [
+        [
+          {
+            "node": "Send WARM Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build DB Result Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WARM Lead Alert": {
+      "main": [
+        [
+          {
+            "node": "Build DB Result Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send AI Failure Alert": {
       "main": [
         [
           {
