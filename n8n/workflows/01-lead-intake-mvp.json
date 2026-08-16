@@ -1,0 +1,56 @@
+{
+  "name": "01 Lead Intake MVP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "renovateai/lead-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d7d5282c-699e-4d7a-a0a9-26357f574a98",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [260, 300],
+      "webhookId": "cc88bdb8-e7cd-4a1f-99dd-e685fd49f10b"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"message\": \"Webhook received\", \"received\": $json } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "cfed1073-9256-4bc8-af56-faf0dcbb4aa3",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [560, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d8f0dd33-946c-4931-9dfc-31ac76158daf",
+  "meta": {
+    "instanceId": "renovateai-phase1"
+  },
+  "id": "1",
+  "tags": []
+}

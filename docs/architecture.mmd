@@ -1,0 +1,8 @@
+flowchart LR
+  A[React Lead Form] --> B[n8n Webhook]
+  B --> C[Validate Payload]
+  C --> D[AI Qualification]
+  D --> E[(Supabase)]
+  D --> F{HOT?}
+  F -->|Yes| G[Slack Notification]
+  E --> H[Frontend Success Response]
