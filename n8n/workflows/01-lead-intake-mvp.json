@@ -8,70 +8,239 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "d7d5282c-699e-4d7a-a0a9-26357f574a98",
+      "id": "b7564aa5-26ca-4a61-8d62-e01b439991b4",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [260, 300],
+      "position": [
+        -3872,
+        672
+      ],
       "webhookId": "cc88bdb8-e7cd-4a1f-99dd-e685fd49f10b"
     },
     {
       "parameters": {
-        "jsCode": "const payload = $json;\nconst requiredFields = [\n  \"name\",\n  \"email\",\n  \"phone\",\n  \"projectType\",\n  \"budget\",\n  \"location\",\n  \"timeline\",\n  \"description\",\n];\n\nconst errors = [];\n\nfor (const field of requiredFields) {\n  const value = payload[field];\n  if (typeof value !== \"string\" || !value.trim()) {\n    errors.push(`${field} is required`);\n  }\n}\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (typeof payload.email !== \"string\" || !emailRegex.test(payload.email.trim())) {\n  errors.push(\"email must be valid\");\n}\n\nreturn [\n  {\n    json: {\n      ...payload,\n      isValid: errors.length === 0,\n      validationErrors: errors,\n    },\n  },\n];"
+        "jsCode": "const item = $input.item.json;\nconst payload =\n  item.body && typeof item.body === \"object\"\n    ? item.body\n    : item;\n\nconst requiredFields = [\n  \"name\",\n  \"email\",\n  \"phone\",\n  \"projectType\",\n  \"budget\",\n  \"location\",\n  \"timeline\",\n  \"description\",\n];\n\nconst errors = [];\n\nfor (const field of requiredFields) {\n  const value = payload[field];\n  if (typeof value !== \"string\" || !value.trim()) {\n    errors.push(`${field} is required`);\n  }\n}\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (typeof payload.email !== \"string\" || !emailRegex.test(payload.email.trim())) {\n  errors.push(\"email must be valid\");\n}\n\nreturn [\n  {\n    json: {\n      payload,\n      isValid: errors.length === 0,\n      validationErrors: errors,\n    },\n  },\n];"
       },
-      "id": "915d1a8d-5083-40f5-b7cf-f06ca2900f17",
+      "id": "a7922192-d67a-44a6-b94b-b6d13e978e36",
       "name": "Validate Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [500, 300]
+      "position": [
+        -3632,
+        672
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
             {
-              "value1": "={{ $json.isValid }}",
-              "operation": "true"
+              "id": "e54a1c93-0e15-4e21-8f47-541c49270152",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
             }
-          ]
+          ],
+          "combinator": "and"
         },
         "options": {}
       },
-      "id": "2f49248c-5663-4cbf-82ec-c5009af5f468",
+      "id": "20d47d29-c848-44ba-b053-da62c323c369",
       "name": "Is Valid Payload?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [760, 300]
+      "position": [
+        -3408,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nif (item.isValid !== true) {\n  throw new Error('Invalid payload cannot be prepared for DB insert.');\n}\n\nconst lead = item.payload;\n\nreturn [\n  {\n    json: {\n      leadRecord: {\n        name: lead.name.trim(),\n        email: lead.email.trim().toLowerCase(),\n        phone: lead.phone.trim(),\n        project_type: lead.projectType.trim(),\n        budget: lead.budget.trim(),\n        location: lead.location.trim(),\n        timeline: lead.timeline.trim(),\n        description: lead.description.trim(),\n        source: \"form\",\n        created_at: new Date().toISOString(),\n      },\n    },\n  },\n];"
+      },
+      "id": "832a932a-30fe-4063-9653-e28a042895be",
+      "name": "Prepare Lead Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3168,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare prompt for Gemini API\nconst item = $input.item.json;\nconst lead = item.leadRecord;\n\nconst systemPrompt = `You are a lead qualification assistant for a home renovation company.\n\nAnalyze the lead data and return ONLY valid JSON matching this exact schema:\n{\n  \"leadScore\": number (0-100),\n  \"classification\": \"HOT\" | \"WARM\" | \"COLD\",\n  \"estimatedValue\": number,\n  \"urgency\": \"LOW\" | \"MEDIUM\" | \"HIGH\",\n  \"summary\": \"1-2 sentence summary\",\n  \"recommendedAction\": \"short action string\"\n}\n\nScoring guidance:\n- Higher budgets increase score (Budget $50k+ should score 35-40 points)\n- Urgent timelines increase score (ASAP/Within 1 month should score 25-30 points)\n- Detailed project descriptions increase score (100+ chars should score 25-30 points)\n- HOT classification: score >= 70\n- WARM classification: score 40-69\n- COLD classification: score < 40\n\nRecommended actions:\n- HOT: \"Contact within 24 hours - high priority\"\n- WARM: \"Follow up within 2-3 days\"\n- COLD: \"Add to nurture campaign\"\n\nLead data:\nProject Type: ${lead.project_type}\nBudget: ${lead.budget}\nTimeline: ${lead.timeline}\nLocation: ${lead.location}\nDescription: ${lead.description}\nName: ${lead.name}`;\n\nreturn [\n  {\n    json: {\n      leadRecord: lead,\n      geminiPrompt: systemPrompt,\n    },\n  },\n];"
+      },
+      "id": "05aee91b-02c5-43f7-8c39-75da45c3f3c5",
+      "name": "Prepare AI Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2928,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={{ $env.GOOGLE_GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"contents\": [{\n    \"parts\": [{\n      \"text\": $json.geminiPrompt\n    }]\n  }],\n  \"generationConfig\": {\n    \"temperature\": 0.3,\n    \"topK\": 1,\n    \"topP\": 0.8,\n    \"maxOutputTokens\": 1024,\n    \"responseMimeType\": \"application/json\"\n  }\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "6e25333f-4db1-4e2e-841d-688f76a7d569",
+      "name": "Call Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2688,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Gemini response and handle errors\nconst item = $input.item.json;\nconst lead = $node[\"Prepare AI Prompt\"].json.leadRecord;\n\nlet aiQualification;\n\ntry {\n  const statusCode = item.statusCode || 200;\n  \n  if (statusCode >= 200 && statusCode < 300 && item.body) {\n    const body = typeof item.body === 'string' ? JSON.parse(item.body) : item.body;\n    \n    // Extract text from Gemini response structure\n    const responseText = body?.candidates?.[0]?.content?.parts?.[0]?.text;\n    \n    if (!responseText) {\n      throw new Error('No text in Gemini response');\n    }\n    \n    // Parse the JSON response from Gemini\n    const aiResult = JSON.parse(responseText);\n    \n    // Validate required fields\n    if (!aiResult.leadScore || !aiResult.classification) {\n      throw new Error('Invalid AI response structure');\n    }\n    \n    aiQualification = {\n      lead_score: aiResult.leadScore,\n      classification: aiResult.classification,\n      estimated_value: aiResult.estimatedValue || 0,\n      urgency: aiResult.urgency || 'LOW',\n      ai_summary: aiResult.summary || 'AI-scored lead',\n      recommended_action: aiResult.recommendedAction || 'Review manually',\n      ai_scored_at: new Date().toISOString(),\n    };\n  } else {\n    throw new Error(`Gemini API error: ${statusCode}`);\n  }\n} catch (error) {\n  // Fallback to UNSCORED if AI fails\n  console.error('AI scoring failed:', error.message);\n  \n  aiQualification = {\n    lead_score: null,\n    classification: 'UNSCORED',\n    estimated_value: null,\n    urgency: null,\n    ai_summary: `AI scoring failed: ${error.message}`,\n    recommended_action: 'Manual review required - AI unavailable',\n    ai_scored_at: new Date().toISOString(),\n  };\n}\n\nreturn [\n  {\n    json: {\n      leadRecord: lead,\n      aiQualification: aiQualification,\n    },\n  },\n];"
+      },
+      "id": "f8e728e5-816e-4d35-883a-120637cd33d4",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2448,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge lead data with AI qualification results\nconst item = $input.item.json;\nconst lead = item.leadRecord;\nconst ai = item.aiQualification;\n\n// Combine into final database record\nconst finalRecord = {\n  ...lead,\n  ...ai,\n};\n\nreturn [\n  {\n    json: {\n      finalRecord: finalRecord,\n    },\n  },\n];"
+      },
+      "id": "fe04a225-9464-429e-9b87-c1aeb0962818",
+      "name": "Merge AI Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2208,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SECRET_KEY || $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + ($env.SUPABASE_SECRET_KEY || $env.SUPABASE_SERVICE_ROLE_KEY) }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.finalRecord }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "86a0df52-6354-4c5c-9d2e-fbd258f9b337",
+      "name": "Insert Lead (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1968,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nconst statusCode = item.statusCode || item.status || 200;\nconst body = item.body ?? item;\n\nif (statusCode >= 200 && statusCode < 300) {\n  return [\n    {\n      json: {\n        statusCode: 200,\n        response: {\n          ok: true,\n          message: \"Lead payload accepted and saved\",\n          record: body,\n        },\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      statusCode: 500,\n      response: {\n        ok: false,\n        message: \"Database write failed\",\n        details: body,\n      },\n    },\n  },\n];"
+      },
+      "id": "be5169c1-cefe-49d0-bad0-3e70816a122f",
+      "name": "Build DB Result Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1728,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\n\nreturn [\n  {\n    json: {\n      statusCode: 400,\n      response: {\n        ok: false,\n        message: \"Payload validation failed\",\n        errors: item.validationErrors,\n      },\n    },\n  },\n];"
+      },
+      "id": "26708387-a580-4dd2-b4ea-b75c677eba1a",
+      "name": "Build Validation Error Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3168,
+        752
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"ok\": true, \"message\": \"Lead payload accepted\", \"received\": { \"name\": $json.name, \"email\": $json.email, \"phone\": $json.phone, \"projectType\": $json.projectType, \"budget\": $json.budget, \"location\": $json.location, \"timeline\": $json.timeline, \"description\": $json.description } } }}",
+        "responseBody": "={{ $json.response }}",
         "options": {
-          "responseCode": 200
+          "responseCode": "={{ $json.statusCode }}"
         }
       },
-      "id": "cfed1073-9256-4bc8-af56-faf0dcbb4aa3",
-      "name": "Respond Valid",
+      "id": "6eb44d8d-559f-4097-9faf-0a66ea21dc4d",
+      "name": "Respond Result",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [1020, 220]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ { \"ok\": false, \"message\": \"Payload validation failed\", \"errors\": $json.validationErrors } }}",
-        "options": {
-          "responseCode": 400
-        }
-      },
-      "id": "06f1f830-58c4-4a1e-b049-ba3e2fdaf26f",
-      "name": "Respond Invalid",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.4,
-      "position": [1020, 420]
+      "position": [
+        -1488,
+        672
+      ]
     }
   ],
+  "pinData": {},
   "connections": {
     "Webhook": {
       "main": [
@@ -99,14 +268,102 @@
       "main": [
         [
           {
-            "node": "Respond Valid",
+            "node": "Prepare Lead Record",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Respond Invalid",
+            "node": "Build Validation Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lead Record": {
+      "main": [
+        [
+          {
+            "node": "Prepare AI Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare AI Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Merge AI Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge AI Results": {
+      "main": [
+        [
+          {
+            "node": "Insert Lead (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Lead (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Build DB Result Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build DB Result Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Validation Error Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Result",
             "type": "main",
             "index": 0
           }
@@ -116,12 +373,15 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
   },
-  "versionId": "e5f7fd15-564f-491d-a46a-b624338c80f9",
+  "versionId": "e29bdc1a-ea2e-4063-94de-57d4d5c78f62",
   "meta": {
-    "instanceId": "renovateai-phase1"
+    "instanceId": "52b6f0f61212068cf5ed0ee2026054036c055d0c4e89350fe2ed270d461d99aa"
   },
-  "id": "1",
+  "nodeGroups": [],
+  "id": "t7kNmSKs5iNpOZM3",
   "tags": []
 }

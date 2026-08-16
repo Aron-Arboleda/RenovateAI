@@ -27,11 +27,15 @@ At minimum configure these in Azure:
 - WEBHOOK_URL=https://<your public host name>/
 - N8N_EDITOR_BASE_URL=https://<your public host name>/
 - N8N_ENCRYPTION_KEY=<strong random value>
+- SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+- SUPABASE_SECRET_KEY=<your supabase secret key>
 
 Important:
 
 - Keep N8N_ENCRYPTION_KEY stable forever for that environment.
 - Do not commit keys or credential values in repo files.
+- Keep SUPABASE_SECRET_KEY server-side only (never in frontend env).
+- Workflow supports fallback SUPABASE_SERVICE_ROLE_KEY for older Supabase projects.
 
 ## Persistence
 
