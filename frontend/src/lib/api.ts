@@ -7,6 +7,7 @@ export type LeadPayload = {
   location: string;
   timeline: string;
   description: string;
+  website?: string;
 };
 
 type WebhookSuccess = {

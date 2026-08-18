@@ -11,6 +11,7 @@ type LeadFormData = {
   location: string;
   timeline: string;
   description: string;
+  website: string;
 };
 
 type LeadFormErrors = Partial<Record<keyof LeadFormData, string>>;
@@ -24,6 +25,7 @@ const INITIAL_VALUES: LeadFormData = {
   location: "",
   timeline: "",
   description: "",
+  website: "",
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -136,6 +138,17 @@ export default function LeadForm() {
       </p>
 
       <form className="mt-6 space-y-5" onSubmit={handleSubmit} noValidate>
+        <div className="sr-only" aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            value={values.website}
+            onChange={(event) => handleChange("website", event.target.value)}
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             id="name"

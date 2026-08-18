@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.item.json;\nconst payload =\n  item.body && typeof item.body === \"object\"\n    ? item.body\n    : item;\n\nconst requiredFields = [\n  \"name\",\n  \"email\",\n  \"phone\",\n  \"projectType\",\n  \"budget\",\n  \"location\",\n  \"timeline\",\n  \"description\",\n];\n\nconst errors = [];\n\nfor (const field of requiredFields) {\n  const value = payload[field];\n  if (typeof value !== \"string\" || !value.trim()) {\n    errors.push(`${field} is required`);\n  }\n}\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (typeof payload.email !== \"string\" || !emailRegex.test(payload.email.trim())) {\n  errors.push(\"email must be valid\");\n}\n\nreturn [\n  {\n    json: {\n      payload,\n      isValid: errors.length === 0,\n      validationErrors: errors,\n    },\n  },\n];"
+        "jsCode": "const item = $input.item.json;\nconst payload =\n  item.body && typeof item.body === \"object\"\n    ? item.body\n    : item;\n\nconst requiredFields = [\n  \"name\", \"email\", \"phone\", \"projectType\", \"budget\", \"location\", \"timeline\", \"description\",\n];\nconst errors = [];\nconst disposableDomains = new Set([\n  \"mailinator.com\", \"guerrillamail.com\", \"tempmail.com\", \"10minutemail.com\", \"throwawaymail.com\", \"yopmail.com\",\n]);\n\n// The hidden website field is a honeypot: real visitors do not populate it.\nif (typeof payload.website === \"string\" && payload.website.trim()) {\n  errors.push(\"spam submission rejected\");\n}\n\nfor (const field of requiredFields) {\n  const value = payload[field];\n  if (typeof value !== \"string\" || !value.trim()) errors.push(`${field} is required`);\n}\n\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (typeof payload.email !== \"string\" || !emailRegex.test(payload.email.trim())) {\n  errors.push(\"email must be valid\");\n} else {\n  const domain = payload.email.trim().toLowerCase().split(\"@\")[1];\n  if (disposableDomains.has(domain)) errors.push(\"disposable email addresses are not accepted\");\n}\n\nreturn [{ json: { payload, isValid: errors.length === 0, validationErrors: errors } }];"
       },
       "id": "a7922192-d67a-44a6-b94b-b6d13e978e36",
       "name": "Validate Payload",
@@ -130,7 +130,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL + '/rest/v1/leads' }}",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/rpc/upsert_recent_lead' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -154,7 +154,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ $json.finalRecord }}",
+        "jsonBody": "={{ { p_lead: $json.finalRecord } }}",
         "options": {
           "response": {
             "response": {
@@ -164,7 +164,7 @@
         }
       },
       "id": "86a0df52-6354-4c5c-9d2e-fbd258f9b337",
-      "name": "Insert Lead (Supabase)",
+      "name": "Upsert Recent Lead (Supabase)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [-1968, 592]
@@ -474,14 +474,14 @@
       "main": [
         [
           {
-            "node": "Insert Lead (Supabase)",
+            "node": "Upsert Recent Lead (Supabase)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Insert Lead (Supabase)": {
+    "Upsert Recent Lead (Supabase)": {
       "main": [
         [
           {
