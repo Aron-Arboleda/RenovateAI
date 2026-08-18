@@ -3,6 +3,16 @@
   "nodes": [
     {
       "parameters": {
+        "jsCode": "const result = $input.item.json;\nconst body = typeof result.body === 'string' ? JSON.parse(result.body) : result.body;\nconst saved = Array.isArray(body) ? body[0] : body;\nif (!saved?.id) throw new Error('Supabase upsert did not return a lead id.');\nreturn [{json: {leadId: saved.id}}];"
+      },
+      "id": "phase3-attach-lead-id",
+      "name": "Attach Saved Lead ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1848, 272]
+    },
+    {
+      "parameters": {
         "httpMethod": "POST",
         "path": "renovateai/lead-intake",
         "responseMode": "responseNode",
@@ -351,7 +361,78 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.item.json;\nconst statusCode = item.statusCode || item.status || 200;\nconst body = item.body ?? item;\n\nif (statusCode >= 200 && statusCode < 300) {\n  return [\n    {\n      json: {\n        statusCode: 200,\n        response: {\n          ok: true,\n          message: \"Lead payload accepted and saved\",\n          record: body,\n        },\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      statusCode: 500,\n      response: {\n        ok: false,\n        message: \"Database write failed\",\n        details: body,\n      },\n    },\n  },\n];"
+        "jsCode": "const lead = $node[\"Merge AI Results\"].json.finalRecord;\nconst tier = lead.classification;\n\n// A small set of examples keeps the three lead tiers demonstrably distinct.\nconst examples = {\n  HOT: \"Subject: Let’s plan your renovation consultation\\nBody: Hi Jordan, thanks for the detailed kitchen project. With your $75k–$150k budget and ASAP timeline, we can help you map the next steps. Reply with two convenient times this week for a consultation.\",\n  WARM: \"Subject: Your renovation project\\nBody: Hi Jordan, thanks for sharing your bathroom renovation plans. We’d be happy to answer questions and discuss options when your timing is right.\",\n  COLD: \"Subject: Ideas for your future renovation\\nBody: Hi Jordan, thanks for telling us about your project. We’re here when you’re ready, and can share practical planning guidance in the meantime.\",\n};\n\nconst prompt = `You write concise, professional follow-up emails for a home renovation company. Return ONLY JSON: {\"subject\": string, \"html\": string}. Use the lead’s actual details; never invent details. Do not mention lead scoring or classifications. Use a warm, specific tone and simple HTML paragraphs.\\n\\nTier: ${tier}\\nTone example: ${examples[tier]}\\n\\nLead: ${JSON.stringify({name: lead.name, projectType: lead.project_type, budget: lead.budget, location: lead.location, timeline: lead.timeline, description: lead.description})}`;\nreturn [{json: {lead, emailPrompt: prompt}}];"
+      },
+      "id": "phase3-prepare-email",
+      "name": "Prepare Personalized Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1728, 272]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key={{ $env.GOOGLE_GEMINI_API_KEY }}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { contents: [{ parts: [{ text: $json.emailPrompt }] }], generationConfig: { temperature: 0.45, maxOutputTokens: 700, responseMimeType: 'application/json' } } }}",
+        "options": {"response": {"response": {"fullResponse": true, "neverError": true}}, "timeout": 10000}
+      },
+      "id": "phase3-generate-email",
+      "name": "Generate Personalized Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1488, 272]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.item.json;\nconst lead = $node[\"Prepare Personalized Email\"].json.lead;\ntry {\n  const body = typeof response.body === 'string' ? JSON.parse(response.body) : response.body;\n  const text = body?.candidates?.[0]?.content?.parts?.[0]?.text;\n  const email = JSON.parse(text);\n  if (!email.subject || !email.html) throw new Error('Invalid email JSON');\n  return [{json: {subject: email.subject, html: email.html, lead}}];\n} catch (error) {\n  // Keep the original lead workflow alive even if copy generation fails.\n  return [{json: {subject: `Your ${lead.project_type} project`, html: `<p>Hi ${lead.name},</p><p>Thank you for contacting RenovateAI. Our team will be in touch shortly.</p>`, lead, generationError: error.message}}];\n}"
+      },
+      "id": "phase3-parse-email",
+      "name": "Parse Personalized Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1248, 272]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "={{ 'Bearer ' + $env.RESEND_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { from: $env.RESEND_FROM_EMAIL, to: [$json.lead.email], subject: $json.subject, html: $json.html } }}",
+        "options": {"response": {"response": {"fullResponse": true, "neverError": true}}, "timeout": 10000}
+      },
+      "id": "phase3-send-email",
+      "name": "Send Personalized Email (Resend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1008, 272]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL + '/rest/v1/lead_emails' }}",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "apikey", "value": "={{ $env.SUPABASE_SECRET_KEY || $env.SUPABASE_SERVICE_ROLE_KEY }}"}, {"name": "Authorization", "value": "={{ 'Bearer ' + ($env.SUPABASE_SECRET_KEY || $env.SUPABASE_SERVICE_ROLE_KEY) }}"}, {"name": "Content-Type", "value": "application/json"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { lead_id: $node['Attach Saved Lead ID'].json.leadId, classification: $node['Merge AI Results'].json.finalRecord.classification, subject: $node['Parse Personalized Email'].json.subject, body_html: $node['Parse Personalized Email'].json.html, delivery_status: ($json.statusCode >= 200 && $json.statusCode < 300) ? 'sent' : 'failed', provider_message_id: $json.body?.id || null, sent_at: new Date().toISOString() } }}",
+        "options": {"response": {"response": {"fullResponse": true, "neverError": true}}}
+      },
+      "id": "phase3-log-email",
+      "name": "Log Email Delivery (Supabase)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-768, 272]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.item.json;\nreturn [{json: {statusCode: 200, response: {ok: true, message: 'Lead accepted, qualified, and follow-up email processed', emailDelivery: item.statusCode >= 200 && item.statusCode < 300 ? 'logged' : 'log_failed'}}}];"
       },
       "id": "be5169c1-cefe-49d0-bad0-3e70816a122f",
       "name": "Build DB Result Response",
@@ -482,6 +563,72 @@
       ]
     },
     "Upsert Recent Lead (Supabase)": {
+      "main": [
+        [
+          {
+            "node": "Attach Saved Lead ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Saved Lead ID": {
+      "main": [
+        [
+          {
+            "node": "Prepare Personalized Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Personalized Email": {
+      "main": [
+        [
+          {
+            "node": "Generate Personalized Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Personalized Email": {
+      "main": [
+        [
+          {
+            "node": "Parse Personalized Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Personalized Email": {
+      "main": [
+        [
+          {
+            "node": "Send Personalized Email (Resend)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Personalized Email (Resend)": {
+      "main": [
+        [
+          {
+            "node": "Log Email Delivery (Supabase)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Email Delivery (Supabase)": {
       "main": [
         [
           {
