@@ -1,9 +1,13 @@
 import LeadForm from "./components/LeadForm";
 import LeadsDashboard from "./components/LeadsDashboard";
+import BookingForm from "./components/BookingForm";
 
 function App() {
   if (window.location.pathname === "/leads") {
     return <LeadsDashboard />;
+  }
+  if (window.location.pathname === "/book") {
+    return <BookingForm />;
   }
 
   return (

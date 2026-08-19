@@ -10,6 +10,13 @@ export type LeadPayload = {
   website?: string;
 };
 
+export type BookingPayload = {
+  name: string;
+  email: string;
+  startsAt: string;
+  notes: string;
+};
+
 type WebhookSuccess = {
   ok?: boolean;
   message?: string;
@@ -26,6 +33,14 @@ function getWebhookUrl(): string {
     );
   }
 
+  return webhookUrl.trim();
+}
+
+function getBookingWebhookUrl(): string {
+  const webhookUrl = import.meta.env.VITE_N8N_BOOKING_WEBHOOK_URL as string | undefined;
+  if (!webhookUrl?.trim()) {
+    throw new Error("Missing VITE_N8N_BOOKING_WEBHOOK_URL. Add it to Vercel before accepting bookings.");
+  }
   return webhookUrl.trim();
 }
 
@@ -63,5 +78,19 @@ export async function submitLead(
     );
   }
 
+  return parsed;
+}
+
+export async function submitBooking(payload: BookingPayload): Promise<WebhookSuccess> {
+  const response = await fetch(getBookingWebhookUrl(), {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+  const bodyText = await response.text();
+  let parsed: WebhookSuccess = {};
+  try { parsed = bodyText ? JSON.parse(bodyText) as WebhookSuccess : {}; }
+  catch { parsed = {message: bodyText}; }
+  if (!response.ok) throw new Error(parsed.message ?? "We could not reserve that consultation time.");
   return parsed;
 }
