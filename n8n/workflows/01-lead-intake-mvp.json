@@ -67,7 +67,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.item.json;\n\nif (item.isValid !== true) {\n  throw new Error('Invalid payload cannot be prepared for DB insert.');\n}\n\nconst lead = item.payload;\n\nreturn [\n  {\n    json: {\n      leadRecord: {\n        name: lead.name.trim(),\n        email: lead.email.trim().toLowerCase(),\n        phone: lead.phone.trim(),\n        project_type: lead.projectType.trim(),\n        budget: lead.budget.trim(),\n        location: lead.location.trim(),\n        timeline: lead.timeline.trim(),\n        description: lead.description.trim(),\n        source: \"form\",\n        created_at: new Date().toISOString(),\n      },\n    },\n  },\n];"
+        "jsCode": "const item = $input.item.json;\n\nif (item.isValid !== true) {\n  throw new Error('Invalid payload cannot be prepared for DB insert.');\n}\n\nconst lead = item.payload;\n\nreturn [\n  {\n    json: {\n      leadRecord: {\n        name: lead.name.trim(),\n        email: lead.email.trim().toLowerCase(),\n        phone: lead.phone.trim(),\n        project_type: lead.projectType.trim(),\n        budget: lead.budget.trim(),\n        location: lead.location.trim(),\n        timeline: lead.timeline.trim(),\n        description: lead.description.trim(),\n        source: lead.source === \"chatbot\" ? \"chatbot\" : \"form\",\n        created_at: new Date().toISOString(),\n      },\n    },\n  },\n];"
       },
       "id": "832a932a-30fe-4063-9653-e28a042895be",
       "name": "Prepare Lead Record",

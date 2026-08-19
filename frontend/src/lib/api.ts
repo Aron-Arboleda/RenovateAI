@@ -7,6 +7,7 @@ export type LeadPayload = {
   location: string;
   timeline: string;
   description: string;
+  source?: "form" | "chatbot";
   website?: string;
 };
 
@@ -22,6 +23,13 @@ type WebhookSuccess = {
   message?: string;
   errors?: string[];
   [key: string]: unknown;
+};
+
+export type ChatLeadUpdates = Partial<LeadPayload>;
+export type ChatResponse = {
+  reply: string;
+  leadUpdates?: ChatLeadUpdates;
+  isLeadComplete?: boolean;
 };
 
 function getWebhookUrl(): string {
@@ -41,6 +49,12 @@ function getBookingWebhookUrl(): string {
   if (!webhookUrl?.trim()) {
     throw new Error("Missing VITE_N8N_BOOKING_WEBHOOK_URL. Add it to Vercel before accepting bookings.");
   }
+  return webhookUrl.trim();
+}
+
+function getChatWebhookUrl(): string {
+  const webhookUrl = import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL as string | undefined;
+  if (!webhookUrl?.trim()) throw new Error("Chat is not configured yet.");
   return webhookUrl.trim();
 }
 
@@ -93,4 +107,19 @@ export async function submitBooking(payload: BookingPayload): Promise<WebhookSuc
   catch { parsed = {message: bodyText}; }
   if (!response.ok) throw new Error(parsed.message ?? "We could not reserve that consultation time.");
   return parsed;
+}
+
+export async function sendChatMessage(payload: {
+  message: string;
+  lead: ChatLeadUpdates;
+  history: Array<{role: "user" | "assistant"; content: string}>;
+}): Promise<ChatResponse> {
+  const response = await fetch(getChatWebhookUrl(), {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload),
+  });
+  const bodyText = await response.text();
+  if (!response.ok) throw new Error("The chat assistant is unavailable. Please try again.");
+  return JSON.parse(bodyText) as ChatResponse;
 }

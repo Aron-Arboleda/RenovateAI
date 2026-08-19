@@ -1,13 +1,14 @@
 import LeadForm from "./components/LeadForm";
 import LeadsDashboard from "./components/LeadsDashboard";
 import BookingForm from "./components/BookingForm";
+import ChatWidget from "./components/ChatWidget";
 
 function App() {
   if (window.location.pathname === "/leads") {
-    return <LeadsDashboard />;
+    return <><LeadsDashboard /><ChatWidget /></>;
   }
   if (window.location.pathname === "/book") {
-    return <BookingForm />;
+    return <><BookingForm /><ChatWidget /></>;
   }
 
   return (
@@ -47,6 +48,7 @@ function App() {
 
         <LeadForm />
       </section>
+      <ChatWidget />
     </main>
   );
 }
