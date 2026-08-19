@@ -29,6 +29,7 @@ export type ChatLeadUpdates = Partial<LeadPayload>;
 export type ChatResponse = {
   reply: string;
   leadUpdates?: ChatLeadUpdates;
+  nextAction?: "faq" | "guided-intake" | "review" | "complete";
   isLeadComplete?: boolean;
 };
 
@@ -45,15 +46,21 @@ function getWebhookUrl(): string {
 }
 
 function getBookingWebhookUrl(): string {
-  const webhookUrl = import.meta.env.VITE_N8N_BOOKING_WEBHOOK_URL as string | undefined;
+  const webhookUrl = import.meta.env.VITE_N8N_BOOKING_WEBHOOK_URL as
+    | string
+    | undefined;
   if (!webhookUrl?.trim()) {
-    throw new Error("Missing VITE_N8N_BOOKING_WEBHOOK_URL. Add it to Vercel before accepting bookings.");
+    throw new Error(
+      "Missing VITE_N8N_BOOKING_WEBHOOK_URL. Add it to Vercel before accepting bookings.",
+    );
   }
   return webhookUrl.trim();
 }
 
 function getChatWebhookUrl(): string {
-  const webhookUrl = import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL as string | undefined;
+  const webhookUrl = import.meta.env.VITE_N8N_CHAT_WEBHOOK_URL as
+    | string
+    | undefined;
   if (!webhookUrl?.trim()) throw new Error("Chat is not configured yet.");
   return webhookUrl.trim();
 }
@@ -95,7 +102,9 @@ export async function submitLead(
   return parsed;
 }
 
-export async function submitBooking(payload: BookingPayload): Promise<WebhookSuccess> {
+export async function submitBooking(
+  payload: BookingPayload,
+): Promise<WebhookSuccess> {
   const response = await fetch(getBookingWebhookUrl(), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -103,9 +112,15 @@ export async function submitBooking(payload: BookingPayload): Promise<WebhookSuc
   });
   const bodyText = await response.text();
   let parsed: WebhookSuccess = {};
-  try { parsed = bodyText ? JSON.parse(bodyText) as WebhookSuccess : {}; }
-  catch { parsed = {message: bodyText}; }
-  if (!response.ok) throw new Error(parsed.message ?? "We could not reserve that consultation time.");
+  try {
+    parsed = bodyText ? (JSON.parse(bodyText) as WebhookSuccess) : {};
+  } catch {
+    parsed = {message: bodyText};
+  }
+  if (!response.ok)
+    throw new Error(
+      parsed.message ?? "We could not reserve that consultation time.",
+    );
   return parsed;
 }
 
@@ -120,6 +135,7 @@ export async function sendChatMessage(payload: {
     body: JSON.stringify(payload),
   });
   const bodyText = await response.text();
-  if (!response.ok) throw new Error("The chat assistant is unavailable. Please try again.");
+  if (!response.ok)
+    throw new Error("The chat assistant is unavailable. Please try again.");
   return JSON.parse(bodyText) as ChatResponse;
 }
